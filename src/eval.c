@@ -1,17 +1,8 @@
-/*
- * eval.c  —  Anteater Poker hand evaluator (Team 23, EECS 22L)
- *
- * Supports the Anteater Wild Card: when a wild card is in the pool,
- * the evaluator tries every possible rank/suit substitution and keeps
- * whichever gives the highest hand rank.
- */
-
 #include <string.h>
 #include <stdio.h>
 #include "eval.h"
 #include "types.h"
 
-/* Hand rank constants (local, same order as HAND_RANK_NAMES) */
 #define HR_HIGH        0
 #define HR_PAIR        1
 #define HR_TWO_PAIR    2
@@ -23,12 +14,10 @@
 #define HR_STR_FLUSH   8
 #define HR_ROYAL       9
 
-/* ── Evaluate exactly 5 cards (no wild) ─────────────── */
 static int eval5(Card h[5], int tb[5]) {
     int ranks[5], suits[5];
     for (int i = 0; i < 5; i++) { ranks[i] = h[i].rank; suits[i] = h[i].suit; }
 
-    /* sort ranks descending */
     for (int i = 0; i < 4; i++)
         for (int j = i+1; j < 5; j++)
             if (ranks[j] > ranks[i]) { int t=ranks[i]; ranks[i]=ranks[j]; ranks[j]=t; }
@@ -36,12 +25,12 @@ static int eval5(Card h[5], int tb[5]) {
     int flush = 1;
     for (int i = 1; i < 5; i++) if (suits[i] != suits[0]) { flush = 0; break; }
 
-    /* straight check */
+//straight
     int straight = 0;
     if (ranks[0]-ranks[4]==4 && ranks[0]!=ranks[1] && ranks[1]!=ranks[2]
                               && ranks[2]!=ranks[3] && ranks[3]!=ranks[4])
         straight = 1;
-    /* wheel A-2-3-4-5 */
+
     if (ranks[0]==12 && ranks[1]==3 && ranks[2]==2 && ranks[3]==1 && ranks[4]==0) {
         straight = 1;
         ranks[0]=3; ranks[1]=2; ranks[2]=1; ranks[3]=0; ranks[4]=-1;
@@ -69,22 +58,20 @@ static int eval5(Card h[5], int tb[5]) {
     else if (pairs == 1)                         hr = HR_PAIR;
     else                                         hr = HR_HIGH;
 
-    /* tiebreak: sort by frequency then rank */
-    /* reorder ranks: quads first, then trips, then pairs, then kickers */
+//ranks
     int out[5]; int oi = 0;
     for (int freq = 4; freq >= 1; freq--)
         for (int r = 12; r >= 0; r--)
             if (cnt[r] == freq)
                 for (int k = 0; k < freq && oi < 5; k++)
                     out[oi++] = r;
-    /* fill remaining with wheel card */
+
     while (oi < 5) out[oi++] = -1;
     for (int i = 0; i < 5; i++) tb[i] = out[i];
 
     return hr;
 }
 
-/* ── Best 5 from n cards (C(n,5) brute force) ─────── */
 static int best_from_pool_nowild(Card *pool, int n, Card best5[5], int tb[5]) {
     int best_hr = -1;
     int best_tb[5] = {-1,-1,-1,-1,-1};
@@ -113,10 +100,9 @@ static int best_from_pool_nowild(Card *pool, int n, Card best5[5], int tb[5]) {
     return best_hr;
 }
 
-/* ── Public API ─────────────────────────────────────── */
 int evaluate_best_hand(Card *pool, int pool_size,
                        Card best5_out[5], char hand_name_out[32]) {
-    /* Separate wilds from normals */
+
     Card normals[16]; int nn = 0;
     int has_wild = 0;
     for (int i = 0; i < pool_size; i++) {
@@ -131,10 +117,10 @@ int evaluate_best_hand(Card *pool, int pool_size,
     if (!has_wild) {
         best_hr = best_from_pool_nowild(normals, nn, best5, best_tb);
     } else {
-        /* Try every possible card for the wild */
+
         for (int wr = 0; wr < 13; wr++)
         for (int ws = 0; ws < 4;  ws++) {
-            /* skip duplicates */
+
             int dup = 0;
             for (int i = 0; i < nn; i++)
                 if (normals[i].rank==wr && normals[i].suit==ws) { dup=1; break; }
