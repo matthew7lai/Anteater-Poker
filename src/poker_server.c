@@ -107,6 +107,8 @@ static void send_msg(int fd, const char *fmt, ...) {
 }
 
 /* Broadcast to all connected (non-bot) clients */
+static void bot_act(int seat);
+
 static void broadcast(const char *fmt, ...) {
     char buf[MAX_MSG_LEN];
     va_list ap; va_start(ap, fmt); vsnprintf(buf, MAX_MSG_LEN, fmt, ap); va_end(ap);
@@ -309,8 +311,9 @@ static void next_round(void) {
             /* derive tiebreak from best5 */
             {
                 int cnt[13]={0};
-                for(int k=0;k<5;k++) if(best5[k].rank>=0) cnt[best5[k].rank]++;
                 int oi=0;
+                for(int k=0;k<5;k++)
+                    if(best5[k].rank>=0) cnt[best5[k].rank]++;
                 for(int freq=4;freq>=1;freq--)
                     for(int r=12;r>=0;r--)
                         if(cnt[r]==freq)
@@ -359,6 +362,18 @@ static void next_round(void) {
         broadcast("%s|%d|%s|%d|%d", MSG_RESULT,
             table.winner_seat, table.winner_hand_name, table.pot, bonus);
         broadcast_points();
+        /* Broadcast all players cards for showdown reveal */
+        for (int si = 0; si < MAX_PLAYERS; si++) {
+            Player *sp = &table.players[si];
+            if (!sp->active) continue;
+            broadcast("SHOWCARDS|%d|%s|%d|%d|%d|%d|%d",
+                si, sp->name,
+                sp->hand[0].rank, sp->hand[0].suit,
+                sp->hand[1].rank, sp->hand[1].suit,
+                sp->wild_card.is_wild);
+        }
+        table.game_started = 0;
+        table.pot = 0;
         g_idle_add(refresh_dashboard, NULL);
         return;
     }
@@ -372,6 +387,15 @@ static void next_round(void) {
     broadcast("%s|%d|%d|%d", MSG_TURN,
               table.current_turn, table.current_bet, table.pot);
     g_idle_add(refresh_dashboard, NULL);
+
+    /* If current player is a bot, act automatically after short delay */
+    if (slots[table.current_turn].is_bot &&
+        table.players[table.current_turn].active &&
+        !table.players[table.current_turn].folded &&
+        !table.hand_over) {
+        usleep(500000); /* 0.5 second delay so moves are visible */
+        bot_act(table.current_turn);
+    }
 }
 
 /* ── Advance turn to next active player ─────────────── */
@@ -411,6 +435,15 @@ static void advance_turn(void) {
     broadcast("%s|%d|%d|%d", MSG_TURN,
               table.current_turn, table.current_bet, table.pot);
     g_idle_add(refresh_dashboard, NULL);
+
+    /* If current player is a bot, act automatically after short delay */
+    if (slots[table.current_turn].is_bot &&
+        table.players[table.current_turn].active &&
+        !table.players[table.current_turn].folded &&
+        !table.hand_over) {
+        usleep(500000); /* 0.5 second delay so moves are visible */
+        bot_act(table.current_turn);
+    }
 }
 
 /* ── Simple bot decision ─────────────────────────────── */

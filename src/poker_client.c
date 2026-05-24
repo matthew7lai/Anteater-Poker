@@ -368,6 +368,26 @@ static void handle_message(char *line) {
             g_idle_add((GSourceFunc)chat_append, cp);
         }
 
+    } else if (strcmp(tok, "SHOWCARDS")==0) {
+        /* SHOWCARDS|seat|name|r0|s0|r1|s1|is_wild */
+        char *ss=strtok(NULL,"|"), *nm=strtok(NULL,"|");
+        char *r0s=strtok(NULL,"|"), *s0s=strtok(NULL,"|");
+        char *r1s=strtok(NULL,"|"), *s1s=strtok(NULL,"|");
+        char *wld=strtok(NULL,"|");
+        if (!ss||!nm||!r0s||!s0s||!r1s||!s1s) return;
+        int sseat=atoi(ss);
+        if (sseat == my_seat) return; /* skip own cards already shown */
+        int r0=atoi(r0s),s0=atoi(s0s),r1=atoi(r1s),s1=atoi(s1s);
+        int iswild=wld?atoi(wld):0;
+        char reveal[128];
+        snprintf(reveal,128,"[SHOWDOWN] %s: %s%s + %s%s%s",
+            nm,
+            RANK_STR[r0], SUIT_STR[s0],
+            RANK_STR[r1], SUIT_STR[s1],
+            iswild ? " + WILD" : "");
+        char *cp = g_strdup(reveal);
+        g_idle_add((GSourceFunc)chat_append, cp);
+
     } else if (strcmp(tok, MSG_ERROR)==0) {
         char *msg=strtok(NULL,"|");
         if (msg) {
