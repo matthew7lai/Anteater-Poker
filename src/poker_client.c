@@ -228,6 +228,32 @@ static gboolean do_refresh(gpointer data) {
 /* ─────────────────────────────────────────────────────
    Message parser (runs in recv thread, schedules GTK work)
    ───────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────
+   Hand reveal dialog callback (top-level, called via g_idle_add)
+   ───────────────────────────────────────────────────── */
+typedef struct { int w; char hand[64]; int bonus; } RI;
+static gboolean show_hand_dialog_cb(gpointer data) {
+    RI *r = (RI*)data;
+    GtkWidget *dialog = gtk_message_dialog_new(
+        NULL,
+        GTK_DIALOG_MODAL,
+        GTK_MESSAGE_QUESTION,
+        GTK_BUTTONS_YES_NO,
+        "Would you like to reveal your hand?\n\nYour best hand: %s%s",
+        r->hand,
+        r->bonus ? "\n(Anteater Wild Card Bonus!)" : "");
+    gtk_window_set_title(GTK_WINDOW(dialog), "Show Hand?");
+    int response = gtk_dialog_run(GTK_DIALOG(dialog));
+    if (response == GTK_RESPONSE_YES) {
+        char reveal[128];
+        snprintf(reveal, 128, "You revealed your hand: %s", r->hand);
+        chat_append(reveal);
+    }
+    gtk_widget_destroy(dialog);
+    free(r);
+    return G_SOURCE_REMOVE;
+}
+
 static void handle_message(char *line) {
     char buf[MAX_MSG_LEN];
     strncpy(buf, line, MAX_MSG_LEN-1);
@@ -304,11 +330,27 @@ static void handle_message(char *line) {
             snprintf(msg,256,"🏆 %s wins with %s%s",
                 seat_names[wseat], hn?hn:"?", bonus?" (used Anteater Wild!)":"");
         gtk_label_set_text(GTK_LABEL(status_label), msg);
-        /* append to chat too */
         char *msg_copy = g_strdup(msg);
         g_idle_add((GSourceFunc)chat_append, msg_copy);
         my_turn=0;
         g_idle_add(do_refresh, GINT_TO_POINTER(RT_STATUS));
+
+        /* Show or auto-reveal hand */
+        RI *ri2 = NULL; (void)ri2;
+        RI *ri = malloc(sizeof(RI));
+        ri->w = wseat; ri->bonus = bonus;
+        snprintf(ri->hand, 64, "%s", hn ? hn : "Unknown");
+        if (wseat == my_seat) {
+            g_idle_add(show_hand_dialog_cb, ri);
+        } else {
+            char rev[128];
+            if (wseat >= 0)
+                snprintf(rev,128,"Bot %s reveals: %s", seat_names[wseat], ri->hand);
+            else
+                snprintf(rev,128,"Tie - hands revealed automatically");
+            g_idle_add((GSourceFunc)chat_append, g_strdup(rev));
+            free(ri);
+        }
 
     } else if (strcmp(tok, MSG_INFO)==0) {
         char *msg=strtok(NULL,"|");
