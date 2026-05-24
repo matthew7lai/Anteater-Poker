@@ -60,7 +60,9 @@ static void build_deck(void) {
 }
 
 static void shuffle_deck(void) {
-    for (int i = DECK_SIZE-1; i > 0; i--) {
+    /* Only shuffle the 52 normal cards (index 0-51)
+       Wild card stays at index 52 and is dealt separately */
+    for (int i = 51; i > 0; i--) {
         int j = rand() % (i+1);
         Card t = deck[i]; deck[i] = deck[j]; deck[j] = t;
     }
@@ -187,9 +189,7 @@ static void deal_round(void) {
     table.hand_over = 0;
     table.winner_seat = -1;
 
-    /* Deal 2 hole cards + check for wild card to each active player */
-    /* Wild card is randomly distributed – only ONE player gets it   */
-    int wild_dealt = 0;
+    /* Deal 2 normal hole cards to each active player */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         Player *p = &table.players[i];
         if (!p->active) continue;
@@ -198,22 +198,18 @@ static void deal_round(void) {
         p->used_wild = 0;
         p->hand[0] = deal_one();
         p->hand[1] = deal_one();
-        /* 1-in-3 chance of getting wild (first eligible player gets it if needed) */
-        if (!wild_dealt && (rand() % 3 == 0 || i == MAX_PLAYERS-1)) {
-            p->wild_card = deck[52]; /* always the last card */
-            wild_dealt = 1;
-        } else {
-            p->wild_card.rank = -1; p->wild_card.suit = -1; p->wild_card.is_wild = 0;
-        }
+        p->wild_card.rank = -1; p->wild_card.suit = -1; p->wild_card.is_wild = 0;
     }
-    /* If wild wasn't dealt yet assign to random active player */
-    if (!wild_dealt) {
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            if (table.players[i].active) {
-                table.players[i].wild_card = deck[52];
-                break;
-            }
-        }
+
+    /* Pick ONE random active player to get the Anteater Wild Card */
+    int active_seats[MAX_PLAYERS]; int active_count = 0;
+    for (int i = 0; i < MAX_PLAYERS; i++)
+        if (table.players[i].active) active_seats[active_count++] = i;
+    if (active_count > 0) {
+        int lucky = active_seats[rand() % active_count];
+        table.players[lucky].wild_card = deck[52];
+        server_log("Player '%s' (seat %d) got the Anteater Wild Card!",
+                   table.players[lucky].name, lucky);
     }
 
     /* Advance dealer button */
@@ -310,8 +306,8 @@ static void next_round(void) {
                     if (best5[k].is_wild) p->used_wild=1;
 
             int tb[5];
-            /* get tiebreak from eval */
-            { /* derive tiebreak from best5 */
+            /* derive tiebreak from best5 */
+            {
                 int cnt[13]={0};
                 for(int k=0;k<5;k++) if(best5[k].rank>=0) cnt[best5[k].rank]++;
                 int oi=0;
