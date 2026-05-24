@@ -1,12 +1,3 @@
-/*
- * test_poker.c  —  Unit tests for Anteater Poker (Team 23, EECS 22L)
- *
- * Tests: deck building, shuffling, hand evaluation, wildcard logic,
- *        tiebreaking, and message formatting.
- *
- * Build & run:  make test
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +12,6 @@ static int passed = 0, failed = 0;
     else       { printf("[FAIL] %s  (line %d)\n", name, __LINE__); failed++; } \
 } while(0)
 
-/* ── Helpers ─────────────────────────────────────────── */
 static Card C(int rank, int suit) { Card c={rank,suit,0}; return c; }
 static Card W(void)               { Card c={13,4,1};      return c; }
 
@@ -30,7 +20,7 @@ static int hand_rank(Card pool[], int n) {
     return evaluate_best_hand(pool, n, b, nm);
 }
 
-/* ── Deck tests ──────────────────────────────────────── */
+//test the deck
 static void test_deck(void) {
     Card deck[DECK_SIZE];
     int i=0;
@@ -44,115 +34,106 @@ static void test_deck(void) {
     TEST("deck_ace_spades", deck[51].rank==12 && deck[51].suit==3);
 }
 
-/* ── Hand evaluation tests ───────────────────────────── */
 static void test_hands(void) {
     Card pool[7];
     int n;
 
-    /* Royal Flush */
+//royal flush
     pool[0]=C(12,2); pool[1]=C(11,2); pool[2]=C(10,2);
     pool[3]=C(9,2);  pool[4]=C(8,2);
     TEST("royal_flush", hand_rank(pool,5)==9);
 
-    /* Straight Flush */
+    //straight flush
     pool[0]=C(5,1); pool[1]=C(6,1); pool[2]=C(7,1);
     pool[3]=C(8,1); pool[4]=C(9,1);
     TEST("straight_flush", hand_rank(pool,5)==8);
 
-    /* Four of a Kind */
+    //Quads
     pool[0]=C(7,0); pool[1]=C(7,1); pool[2]=C(7,2);
     pool[3]=C(7,3); pool[4]=C(2,0);
     TEST("four_of_a_kind", hand_rank(pool,5)==7);
 
-    /* Full House */
+    //Full House
     pool[0]=C(10,0); pool[1]=C(10,1); pool[2]=C(10,2);
     pool[3]=C(5,0);  pool[4]=C(5,1);
     TEST("full_house", hand_rank(pool,5)==6);
 
-    /* Flush */
+   //flush
     pool[0]=C(2,3); pool[1]=C(5,3); pool[2]=C(7,3);
     pool[3]=C(9,3); pool[4]=C(11,3);
     TEST("flush", hand_rank(pool,5)==5);
 
-    /* Straight */
+    //straight
     pool[0]=C(4,0); pool[1]=C(5,1); pool[2]=C(6,2);
     pool[3]=C(7,3); pool[4]=C(8,0);
     TEST("straight", hand_rank(pool,5)==4);
 
-    /* Three of a Kind */
+    //three of a kind
     pool[0]=C(3,0); pool[1]=C(3,1); pool[2]=C(3,2);
     pool[3]=C(7,0); pool[4]=C(9,1);
     TEST("three_of_a_kind", hand_rank(pool,5)==3);
 
-    /* Two Pair */
+    //two pair
     pool[0]=C(4,0); pool[1]=C(4,1); pool[2]=C(6,0);
     pool[3]=C(6,1); pool[4]=C(9,2);
     TEST("two_pair", hand_rank(pool,5)==2);
 
-    /* One Pair */
+    //one pair
     pool[0]=C(2,0); pool[1]=C(2,1); pool[2]=C(5,0);
     pool[3]=C(7,1); pool[4]=C(9,2);
     TEST("one_pair", hand_rank(pool,5)==1);
 
-    /* High Card */
+    //high card
     pool[0]=C(2,0); pool[1]=C(4,1); pool[2]=C(6,2);
     pool[3]=C(9,3); pool[4]=C(11,0);
     TEST("high_card", hand_rank(pool,5)==0);
 
-    /* Wheel straight (A-2-3-4-5) */
+    //wheel straight
     pool[0]=C(12,0); pool[1]=C(0,1); pool[2]=C(1,2);
     pool[3]=C(2,3);  pool[4]=C(3,0);
     TEST("wheel_straight", hand_rank(pool,5)==4);
 }
 
-/* ── Wildcard tests ──────────────────────────────────── */
+//test wildcard
 static void test_wildcard(void) {
     Card pool[8];
 
-    /* Wild completes a flush: 4 hearts + wild => flush */
     pool[0]=C(2,2); pool[1]=C(5,2); pool[2]=C(8,2); pool[3]=C(11,2);
     pool[4]=W();
     TEST("wild_completes_flush", hand_rank(pool,5)>=5);
 
-    /* Wild completes four-of-a-kind */
     pool[0]=C(9,0); pool[1]=C(9,1); pool[2]=C(9,2); pool[3]=C(2,3);
     pool[4]=W();
     TEST("wild_completes_quads", hand_rank(pool,5)==7);
 
-    /* Wild completes straight */
     pool[0]=C(3,0); pool[1]=C(4,1); pool[2]=C(5,2); pool[3]=C(6,3);
     pool[4]=W();
     TEST("wild_completes_straight", hand_rank(pool,5)>=4);
 
-    /* Wild in 7-card pool picks best combo */
     pool[0]=C(10,0); pool[1]=C(10,1); pool[2]=C(10,2);
     pool[3]=C(5,0);  pool[4]=C(5,1);
     pool[5]=C(2,3);  pool[6]=W();
     TEST("wild_7card_fullhouse_or_better", hand_rank(pool,7)>=6);
 
-    /* Wild with pair makes trips */
     pool[0]=C(6,0); pool[1]=C(6,1); pool[2]=C(2,2);
     pool[3]=C(4,3); pool[4]=W();
     TEST("wild_pair_to_trips", hand_rank(pool,5)==3);
 }
 
-/* ── Best 5 from 7 ───────────────────────────────────── */
 static void test_best5(void) {
-    /* 7-card pool — picks full house over lesser hand */
+
     Card pool[7];
     pool[0]=C(8,0); pool[1]=C(8,1); pool[2]=C(8,2);
     pool[3]=C(3,0); pool[4]=C(3,1);
     pool[5]=C(2,0); pool[6]=C(7,1);
     TEST("best5_fullhouse_from_7", hand_rank(pool,7)==6);
 
-    /* 7-card pool picks flush */
     pool[0]=C(2,1); pool[1]=C(5,1); pool[2]=C(8,1);
     pool[3]=C(10,1);pool[4]=C(12,1);
     pool[5]=C(0,0); pool[6]=C(3,2);
     TEST("best5_flush_from_7", hand_rank(pool,7)==5);
 }
 
-/* ── Message format tests ────────────────────────────── */
 static void test_messages(void) {
     char buf[256];
     snprintf(buf, 256, "%s|testuser", MSG_JOIN);
@@ -165,7 +146,7 @@ static void test_messages(void) {
     TEST("msg_action_call",   strncmp(buf,"ACTION|CALL|0",13)==0);
 }
 
-/* ── Tiebreak test ───────────────────────────────────── */
+//tiebreak
 static void test_tiebreak(void) {
     Card best[5]; char nm[32];
     Card a[5]={C(12,0),C(12,1),C(7,0),C(3,1),C(2,2)};
@@ -177,7 +158,7 @@ static void test_tiebreak(void) {
     TEST("tiebreak_both_one_pair", ra==1 && rb==1);
 }
 
-/* ── main ─────────────────────────────────────────────── */
+//main
 int main(void) {
     printf("=== Anteater Poker Unit Tests (Team 23) ===\n\n");
     test_deck();
