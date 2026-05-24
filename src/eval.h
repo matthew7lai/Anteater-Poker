@@ -1,15 +1,9 @@
-/*
- * eval.h  —  Anteater Poker hand evaluator (Team 23, EECS 22L)
- */
 #ifndef EVAL_H
 #define EVAL_H
 
 #include "types.h"
 
-/* Evaluate best 5-card hand from a pool of cards (handles wildcard).
- * Returns hand rank (0=High Card .. 9=Royal Flush).
- * best5_out[] receives the 5 cards chosen.
- * hand_name_out receives a string like "Full House".           */
+/* Evaluate best 5-card hand from a pool of cards */
 int evaluate_best_hand(Card *pool, int pool_size,
                        Card best5_out[5],
                        char hand_name_out[32]);
