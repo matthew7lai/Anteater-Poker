@@ -1,10 +1,3 @@
-/*
- * poker_server.c  —  Anteater Poker Server  (Team 23, EECS 22L)
- *
- * Build:  see src/Makefile
- * Run:    ./bin/poker_server [port]
- */
-
 #include <gtk/gtk.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,15 +11,12 @@
 #include "types.h"
 #include "eval.h"
 
-/* ══════════════════════════════════════════════════════
-   Constants & globals
-   ══════════════════════════════════════════════════════ */
 #define BOT_PREFIX "Bot"
 
 typedef struct {
-    int       fd;
-    int       seat;
-    int       is_bot;
+    int fd;
+    int seat;
+    int is_bot;
     pthread_t thread;
 } ClientSlot;
 
@@ -35,16 +25,14 @@ static Table               table;
 static pthread_mutex_t     table_lock = PTHREAD_MUTEX_INITIALIZER;
 static int                 server_fd  = -1;
 
-/* GTK dashboard widgets */
+//GTK widgets
 static GtkWidget      *log_textview = NULL;
 static GtkWidget      *player_list  = NULL;
 static GtkWidget      *round_label  = NULL;
 static GtkWidget      *pot_label    = NULL;
 static GtkTextBuffer  *log_buf      = NULL;
 
-/* ══════════════════════════════════════════════════════
-   Deck
-   ══════════════════════════════════════════════════════ */
+//deck
 static Card deck[DECK_SIZE];
 static int  deck_top = 0;
 
@@ -59,7 +47,7 @@ static void build_deck(void) {
 }
 
 static void shuffle_deck(void) {
-    /* Only shuffle 52 normal cards — wild stays at index 52 */
+    // Only shuffle 52 normal cards — wild stays at index 52
     for (int i = 51; i > 0; i--) {
         int j = rand() % (i + 1);
         Card t = deck[i]; deck[i] = deck[j]; deck[j] = t;
@@ -71,9 +59,7 @@ static Card deal_one(void) {
     return deck[deck_top++];
 }
 
-/* ══════════════════════════════════════════════════════
-   Logging
-   ══════════════════════════════════════════════════════ */
+//logging
 static gboolean _append_log(gpointer data) {
     char *msg = (char*)data;
     if (log_buf) {
@@ -94,9 +80,7 @@ static void server_log(const char *fmt, ...) {
     else free(msg);
 }
 
-/* ══════════════════════════════════════════════════════
-   Networking
-   ══════════════════════════════════════════════════════ */
+//networking between servers
 static void send_msg(int fd, const char *fmt, ...) {
     if (fd < 0) return;
     char buf[MAX_MSG_LEN];
@@ -133,9 +117,7 @@ static void broadcast_points(void) {
     broadcast("%s", buf);
 }
 
-/* ══════════════════════════════════════════════════════
-   Dashboard refresh
-   ══════════════════════════════════════════════════════ */
+//refresh
 static gboolean refresh_dashboard(gpointer data) {
     (void)data;
     if (!player_list || !round_label || !pot_label) return G_SOURCE_REMOVE;
@@ -163,16 +145,12 @@ static gboolean refresh_dashboard(gpointer data) {
     return G_SOURCE_REMOVE;
 }
 
-/* ══════════════════════════════════════════════════════
-   Forward declarations
-   ══════════════════════════════════════════════════════ */
+//forward declarations
 static void bot_act(int seat);
 static void advance_turn(void);
 static void next_round(void);
 
-/* ══════════════════════════════════════════════════════
-   Bot logic
-   ══════════════════════════════════════════════════════ */
+//bot logic
 static void bot_act(int seat) {
     Player *p = &table.players[seat];
     if (!p->active || p->folded || table.hand_over) return;
@@ -180,16 +158,13 @@ static void bot_act(int seat) {
     int to_call = table.current_bet - p->current_bet;
 
     if (to_call == 0) {
-        /* Check always — bots never raise */
         broadcast("%s|%s checks", MSG_INFO, p->name);
     } else if (to_call <= p->points) {
-        /* Always call */
         p->points    -= to_call;
         p->current_bet += to_call;
         table.pot    += to_call;
         broadcast("%s|%s calls %d", MSG_INFO, p->name, to_call);
     } else {
-        /* Can't afford — fold */
         p->folded = 1;
         broadcast("%s|%s folds", MSG_INFO, p->name);
     }
@@ -198,13 +173,9 @@ static void bot_act(int seat) {
     advance_turn();
 }
 
-/* ══════════════════════════════════════════════════════
-   Advance turn
-   ══════════════════════════════════════════════════════ */
 static void advance_turn(void) {
     if (table.hand_over) return;
 
-    /* Count players still in hand */
     int active_count = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
         if (table.players[i].active && !table.players[i].folded)
@@ -212,7 +183,6 @@ static void advance_turn(void) {
 
     if (active_count <= 1) { next_round(); return; }
 
-    /* Check if everyone has matched the current bet */
     int all_matched = 1;
     for (int i = 0; i < MAX_PLAYERS; i++) {
         Player *p = &table.players[i];
@@ -220,7 +190,6 @@ static void advance_turn(void) {
         if (p->current_bet < table.current_bet) { all_matched = 0; break; }
     }
 
-    /* Move to next active player */
     int start = table.current_turn;
     do {
         table.current_turn = (table.current_turn + 1) % MAX_PLAYERS;
@@ -228,7 +197,6 @@ static void advance_turn(void) {
                table.players[table.current_turn].folded) &&
               table.current_turn != start);
 
-    /* Check if we've gone full circle and everyone matched */
     int first_active = (table.dealer_seat + 1) % MAX_PLAYERS;
     while (!table.players[first_active].active ||
             table.players[first_active].folded)
@@ -243,25 +211,22 @@ static void advance_turn(void) {
               table.current_turn, table.current_bet, table.pot);
     g_idle_add(refresh_dashboard, NULL);
 
-    /* If it's a bot's turn, act after a short delay */
     if (slots[table.current_turn].is_bot) {
-        usleep(600000); /* 0.6 second delay */
+        usleep(600000); 
         bot_act(table.current_turn);
     }
 }
 
-/* ══════════════════════════════════════════════════════
-   Next betting round
-   ══════════════════════════════════════════════════════ */
+//next betting round
 static void next_round(void) {
-    /* Reset bets for new round */
+    //reset bets
     for (int i = 0; i < MAX_PLAYERS; i++)
         table.players[i].current_bet = 0;
     table.current_bet = 0;
     table.round++;
 
     if (table.round == 1) {
-        /* Flop: reveal 3 community cards */
+        // Flop: reveal 3 community cards 
         for (int i = 0; i < 3; i++)
             table.community[table.community_count++] = deal_one();
         char buf[MAX_MSG_LEN];
@@ -276,7 +241,7 @@ static void next_round(void) {
         server_log("Community: revealed 3 total cards");
 
     } else if (table.round == 2 || table.round == 3) {
-        /* Turn or River: reveal 1 card */
+        // Turn or River: reveal 1 card
         table.community[table.community_count++] = deal_one();
         char buf[MAX_MSG_LEN];
         snprintf(buf, MAX_MSG_LEN, "%s", MSG_COMMUNITY);
@@ -291,7 +256,7 @@ static void next_round(void) {
                    table.community_count);
 
     } else if (table.round >= 4) {
-        /* Showdown */
+        //showdown
         table.round    = 4;
         table.hand_over = 1;
 
@@ -314,11 +279,11 @@ static void next_round(void) {
             Card best5[5]; char hname[32];
             int rank = evaluate_best_hand(pool, np, best5, hname);
 
-            /* Check if wild was used */
+            // Check if wild was used
             for (int k = 0; k < 5; k++)
                 if (best5[k].is_wild) p->used_wild = 1;
 
-            /* Derive tiebreak */
+            //tiebreak
             int tb[5];
             {
                 int cnt[13] = {0};
@@ -352,8 +317,8 @@ static void next_round(void) {
             }
         }
 
-        /* Award points */
-        int bonus = 0;
+//award the points
+       int bonus = 0;
         if (!tie && winner >= 0) {
             table.winner_seat = winner;
             if (table.players[winner].used_wild) bonus = WILDCARD_BONUS;
@@ -370,12 +335,12 @@ static void next_round(void) {
                     table.players[i].points += share;
         }
 
-        /* Broadcast result */
+        //broadcast result
         broadcast("%s|%d|%s|%d|%d", MSG_RESULT,
             table.winner_seat, table.winner_hand_name,
             table.pot, bonus);
 
-        /* Broadcast showdown cards for all active players */
+        // broadcast showdown
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player *p = &table.players[i];
             if (!p->active) continue;
@@ -393,8 +358,8 @@ static void next_round(void) {
         return;
     }
 
-    /* Reset turn to first active player after dealer */
-    table.current_turn = (table.dealer_seat + 1) % MAX_PLAYERS;
+//reset turn
+   table.current_turn = (table.dealer_seat + 1) % MAX_PLAYERS;
     while (!table.players[table.current_turn].active ||
             table.players[table.current_turn].folded)
         table.current_turn = (table.current_turn + 1) % MAX_PLAYERS;
@@ -402,17 +367,14 @@ static void next_round(void) {
     broadcast("%s|%d|%d|%d", MSG_TURN,
               table.current_turn, table.current_bet, table.pot);
     g_idle_add(refresh_dashboard, NULL);
-
-    /* If it's a bot's turn, act */
+   
     if (slots[table.current_turn].is_bot) {
         usleep(600000);
         bot_act(table.current_turn);
     }
 }
 
-/* ══════════════════════════════════════════════════════
-   Deal a new hand
-   ══════════════════════════════════════════════════════ */
+//deal new hand
 static void deal_round(void) {
     pthread_mutex_lock(&table_lock);
 
@@ -427,7 +389,7 @@ static void deal_round(void) {
     table.winner_seat     = -1;
     memset(table.winner_hand_name, 0, sizeof(table.winner_hand_name));
 
-    /* Reset all players for new hand */
+    // reset all players for new hand
     for (int i = 0; i < MAX_PLAYERS; i++) {
         table.players[i].folded      = 0;
         table.players[i].current_bet = 0;
@@ -437,14 +399,14 @@ static void deal_round(void) {
         table.players[i].wild_card.is_wild = 0;
     }
 
-    /* Deal 2 normal hole cards to each active player */
+    //deal 2 cards to each player
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (!table.players[i].active) continue;
         table.players[i].hand[0] = deal_one();
         table.players[i].hand[1] = deal_one();
     }
 
-    /* Give Anteater Wild Card to ONE random active player */
+    //distrubute anteater wild card
     int active_seats[MAX_PLAYERS]; int active_count = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
         if (table.players[i].active) active_seats[active_count++] = i;
@@ -455,12 +417,12 @@ static void deal_round(void) {
                    table.players[lucky].name, lucky);
     }
 
-    /* Rotate dealer button */
+    // rotate dealer button
     do {
         table.dealer_seat = (table.dealer_seat + 1) % MAX_PLAYERS;
     } while (!table.players[table.dealer_seat].active);
 
-    /* First to act = player after dealer */
+    //player after dealer acts
     table.current_turn = (table.dealer_seat + 1) % MAX_PLAYERS;
     while (!table.players[table.current_turn].active)
         table.current_turn = (table.current_turn + 1) % MAX_PLAYERS;
@@ -470,7 +432,7 @@ static void deal_round(void) {
     server_log("New hand dealt. Dealer: seat %d", table.dealer_seat);
     g_idle_add(refresh_dashboard, NULL);
 
-    /* Send each player their private cards */
+    //gives each player their own cards
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (!table.players[i].active) continue;
         send_msg(slots[i].fd, "%s|%d|%d|%d|%d|%d|%d",
@@ -483,20 +445,18 @@ static void deal_round(void) {
             table.players[i].wild_card.suit);
     }
 
-    /* Announce first turn */
+    //announce first turn cards
     broadcast("%s|%d|%d|%d", MSG_TURN,
               table.current_turn, table.current_bet, table.pot);
 
-    /* If first player is a bot, trigger it */
+    //trigger bto
     if (slots[table.current_turn].is_bot) {
         usleep(600000);
         bot_act(table.current_turn);
     }
 }
 
-/* ══════════════════════════════════════════════════════
-   Process human player action
-   ══════════════════════════════════════════════════════ */
+//human action
 static void process_action(int seat, char *action_str, int amount) {
     pthread_mutex_lock(&table_lock);
 
@@ -544,9 +504,6 @@ static void process_action(int seat, char *action_str, int amount) {
     pthread_mutex_unlock(&table_lock);
 }
 
-/* ══════════════════════════════════════════════════════
-   Client handler thread
-   ══════════════════════════════════════════════════════ */
 static void *client_thread(void *arg) {
     int seat = *(int*)arg; free(arg);
     int fd   = slots[seat].fd;
@@ -605,9 +562,6 @@ static void *client_thread(void *arg) {
     return NULL;
 }
 
-/* ══════════════════════════════════════════════════════
-   Accept thread
-   ══════════════════════════════════════════════════════ */
 static void *accept_thread(void *arg) {
     (void)arg;
     struct sockaddr_in cli;
@@ -658,9 +612,7 @@ static void *accept_thread(void *arg) {
     return NULL;
 }
 
-/* ══════════════════════════════════════════════════════
-   Add bots
-   ══════════════════════════════════════════════════════ */
+//add bots
 static void add_bots(int count) {
     int added = 0;
     for (int i = 0; i < MAX_PLAYERS && added < count; i++) {
@@ -679,9 +631,7 @@ static void add_bots(int count) {
     g_idle_add(refresh_dashboard, NULL);
 }
 
-/* ══════════════════════════════════════════════════════
-   GTK Dashboard
-   ══════════════════════════════════════════════════════ */
+//GTK Dashboard
 static void on_deal_clicked(GtkButton *b, gpointer d) {
     (void)b; (void)d;
     int cnt = 0;
