@@ -1,13 +1,3 @@
-/*
- * poker_client.c  —  Anteater Poker Client  (Team 23, EECS 22L)
- *
- * GTK3 graphical client.  Connects to poker_server over TCP/IP.
- * Shows hole cards, community cards, betting controls, chat, scoreboard.
- *
- * Build:  see src/Makefile
- * Run:    ./bin/poker_client [server_ip [port]]
- */
-
 #include <gtk/gtk.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,26 +10,21 @@
 
 #include "types.h"
 
-/* ─────────────────────────────────────────────────────
-   Global client state
-   ───────────────────────────────────────────────────── */
 static int    server_fd   = -1;
 static int    my_seat     = -1;
 static int    my_points   = DEFAULT_POINTS;
 static char   my_name[MAX_NAME_LEN] = "";
 
-/* Local copy of game state (updated from server messages) */
 static Table  ltable;
 static Card   my_hand[HAND_SIZE];
-static Card   my_wild;   /* rank=-1 means no wild this hand */
+static Card   my_wild;   
 static int    my_turn    = 0;
 static int    current_bet= 0;
 static int    pot_val    = 0;
 static int    player_pts[MAX_PLAYERS];
 static char   seat_names[MAX_PLAYERS][MAX_NAME_LEN];
 
-/* ── GTK Widgets ──────────────────────────────────────*/
-static GtkWidget *main_stack;           /* switches login↔game screens */
+static GtkWidget *main_stack;
 
 /* Login screen */
 static GtkWidget *entry_name, *entry_host, *entry_port;
@@ -60,9 +45,7 @@ static GtkTextBuffer *chat_buf;
 static GtkWidget *btn_call, *btn_raise, *btn_fold, *btn_check;
 static GtkWidget *raise_spin;
 
-/* ─────────────────────────────────────────────────────
-   CSS
-   ───────────────────────────────────────────────────── */
+//css
 static void apply_css(void) {
     GtkCssProvider *p = gtk_css_provider_new();
     gtk_css_provider_load_from_data(p,
@@ -99,9 +82,6 @@ static void add_cls(GtkWidget *w, const char *c) {
     gtk_style_context_add_class(gtk_widget_get_style_context(w), c);
 }
 
-/* ─────────────────────────────────────────────────────
-   Card widget factory
-   ───────────────────────────────────────────────────── */
 static GtkWidget *make_card_widget(const Card *c, gboolean community) {
     char buf[16];
     GtkWidget *lbl;
@@ -123,9 +103,7 @@ static GtkWidget *make_card_widget(const Card *c, gboolean community) {
     return lbl;
 }
 
-/* ─────────────────────────────────────────────────────
-   Chat append (called from GTK thread only)
-   ───────────────────────────────────────────────────── */
+//called from gtk only
 static void chat_append(const char *line) {
     if (!chat_buf) return;
     GtkTextIter end;
@@ -134,9 +112,6 @@ static void chat_append(const char *line) {
     gtk_text_buffer_insert(chat_buf, &end, "\n", 1);
 }
 
-/* ─────────────────────────────────────────────────────
-   UI refresh (always called via g_idle_add)
-   ───────────────────────────────────────────────────── */
 static void clear_box(GtkContainer *b) {
     GList *ch = gtk_container_get_children(b);
     for (GList *l=ch;l;l=l->next) gtk_widget_destroy(GTK_WIDGET(l->data));
@@ -225,12 +200,6 @@ static gboolean do_refresh(gpointer data) {
     return G_SOURCE_REMOVE;
 }
 
-/* ─────────────────────────────────────────────────────
-   Message parser (runs in recv thread, schedules GTK work)
-   ───────────────────────────────────────────────────── */
-/* ─────────────────────────────────────────────────────
-   Hand reveal dialog callback (top-level, called via g_idle_add)
-   ───────────────────────────────────────────────────── */
 typedef struct { int w; char hand[64]; int bonus; } RI;
 static gboolean show_hand_dialog_cb(gpointer data) {
     RI *r = (RI*)data;
@@ -275,7 +244,7 @@ static void handle_message(char *line) {
         g_idle_add(do_refresh, GINT_TO_POINTER(RT_PLAYERS));
 
     } else if (strcmp(tok, MSG_DEAL)==0) {
-        /* DEAL|r0|s0|r1|s1|wr|ws */
+       
         int r0=atoi(strtok(NULL,"|")), s0=atoi(strtok(NULL,"|"));
         int r1=atoi(strtok(NULL,"|")), s1=atoi(strtok(NULL,"|"));
         int wr=atoi(strtok(NULL,"|")), ws=atoi(strtok(NULL,"|"));
@@ -369,14 +338,13 @@ static void handle_message(char *line) {
         }
 
     } else if (strcmp(tok, "SHOWCARDS")==0) {
-        /* SHOWCARDS|seat|name|r0|s0|r1|s1|is_wild */
-        char *ss=strtok(NULL,"|"), *nm=strtok(NULL,"|");
+        char *ss=strtok(NULL,"|"), *nm=strtok(NULL,"|"); //shows cards
         char *r0s=strtok(NULL,"|"), *s0s=strtok(NULL,"|");
         char *r1s=strtok(NULL,"|"), *s1s=strtok(NULL,"|");
         char *wld=strtok(NULL,"|");
         if (!ss||!nm||!r0s||!s0s||!r1s||!s1s) return;
         int sseat=atoi(ss);
-        if (sseat == my_seat) return; /* skip own cards already shown */
+        if (sseat == my_seat) return; 
         int r0=atoi(r0s),s0=atoi(s0s),r1=atoi(r1s),s1=atoi(s1s);
         int iswild=wld?atoi(wld):0;
         char reveal[128];
@@ -397,9 +365,6 @@ static void handle_message(char *line) {
     }
 }
 
-/* ─────────────────────────────────────────────────────
-   Recv thread
-   ───────────────────────────────────────────────────── */
 static void *recv_thread(void *arg) {
     (void)arg;
     char buf[MAX_MSG_LEN*4];
@@ -426,9 +391,6 @@ static void *recv_thread(void *arg) {
     return NULL;
 }
 
-/* ─────────────────────────────────────────────────────
-   Send helper
-   ───────────────────────────────────────────────────── */
 static void send_to_server(const char *fmt, ...) {
     if (server_fd < 0) return;
     char buf[MAX_MSG_LEN];
@@ -437,9 +399,7 @@ static void send_to_server(const char *fmt, ...) {
     send(server_fd,buf,strlen(buf),0);
 }
 
-/* ─────────────────────────────────────────────────────
-   Button callbacks
-   ───────────────────────────────────────────────────── */
+//button callbacks
 static void on_call(GtkButton *b,  gpointer d) { (void)b;(void)d;
     send_to_server("%s|CALL|0", MSG_ACTION); my_turn=0;
     g_idle_add(do_refresh,GINT_TO_POINTER(RT_STATUS)); }
@@ -465,9 +425,7 @@ static void on_chat_send(GtkButton *b, gpointer d) { (void)b;(void)d;
     }
 }
 
-/* ─────────────────────────────────────────────────────
-   Login connect button
-   ───────────────────────────────────────────────────── */
+//login button
 static void on_connect(GtkButton *b, gpointer d) {
     (void)b;(void)d;
     const char *name = gtk_entry_get_text(GTK_ENTRY(entry_name));
@@ -491,23 +449,18 @@ static void on_connect(GtkButton *b, gpointer d) {
         close(server_fd); server_fd=-1; return;
     }
 
-    /* Send JOIN */
     send_to_server("%s|%s", MSG_JOIN, my_name);
 
-    /* Switch to game screen */
     gtk_stack_set_visible_child_name(GTK_STACK(main_stack), "game");
 
-    /* Start recv thread */
+    //start thread
     pthread_t rt; pthread_create(&rt,NULL,recv_thread,NULL); pthread_detach(rt);
 
-    /* Signal ready */
     sleep(0);
     send_to_server("%s", MSG_READY);
 }
 
-/* ─────────────────────────────────────────────────────
-   Build Login Screen
-   ───────────────────────────────────────────────────── */
+//build login screen
 static GtkWidget *build_login_screen(void) {
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL,12);
     gtk_container_set_border_width(GTK_CONTAINER(vbox),40);
@@ -554,13 +507,10 @@ static GtkWidget *build_login_screen(void) {
     return vbox;
 }
 
-/* ─────────────────────────────────────────────────────
-   Build Game Screen
-   ───────────────────────────────────────────────────── */
+//game screen
 static GtkWidget *build_game_screen(void) {
     GtkWidget *hpaned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
 
-    /* ── Left panel: table ── */
     GtkWidget *left = gtk_box_new(GTK_ORIENTATION_VERTICAL,8);
     gtk_container_set_border_width(GTK_CONTAINER(left),10);
     gtk_paned_pack1(GTK_PANED(hpaned),left,TRUE,FALSE);
@@ -569,7 +519,6 @@ static GtkWidget *build_game_screen(void) {
     add_cls(ttl,"screen-title");
     gtk_box_pack_start(GTK_BOX(left),ttl,FALSE,FALSE,2);
 
-    /* Status bar */
     GtkWidget *sbar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,16);
     gtk_box_pack_start(GTK_BOX(left),sbar,FALSE,FALSE,0);
     pot_label=gtk_label_new("Pot: 0"); add_cls(pot_label,"info-lbl");
@@ -581,7 +530,7 @@ static GtkWidget *build_game_screen(void) {
 
     gtk_box_pack_start(GTK_BOX(left),gtk_separator_new(GTK_ORIENTATION_HORIZONTAL),FALSE,FALSE,2);
 
-    /* Community cards */
+    //community cards
     GtkWidget *comm_lbl=gtk_label_new("Community Cards"); add_cls(comm_lbl,"info-lbl");
     gtk_box_pack_start(GTK_BOX(left),comm_lbl,FALSE,FALSE,0);
     community_box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
@@ -593,7 +542,7 @@ static GtkWidget *build_game_screen(void) {
 
     gtk_box_pack_start(GTK_BOX(left),gtk_separator_new(GTK_ORIENTATION_HORIZONTAL),FALSE,FALSE,2);
 
-    /* Your hand */
+    //your hand
     GtkWidget *hand_lbl=gtk_label_new("Your Hand"); add_cls(hand_lbl,"info-lbl");
     gtk_box_pack_start(GTK_BOX(left),hand_lbl,FALSE,FALSE,0);
     hand_box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
@@ -607,7 +556,7 @@ static GtkWidget *build_game_screen(void) {
 
     gtk_box_pack_start(GTK_BOX(left),gtk_separator_new(GTK_ORIENTATION_HORIZONTAL),FALSE,FALSE,2);
 
-    /* Action buttons */
+    //action buttons
     GtkWidget *act_box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
     gtk_box_pack_start(GTK_BOX(left),act_box,FALSE,FALSE,4);
 
@@ -638,7 +587,7 @@ static GtkWidget *build_game_screen(void) {
     add_cls(status_label,"info-lbl");
     gtk_box_pack_start(GTK_BOX(left),status_label,FALSE,FALSE,4);
 
-    /* ── Right panel: players + chat ── */
+    //right panel and the chat box
     GtkWidget *right=gtk_box_new(GTK_ORIENTATION_VERTICAL,8);
     gtk_container_set_border_width(GTK_CONTAINER(right),10);
     gtk_paned_pack2(GTK_PANED(hpaned),right,FALSE,FALSE);
@@ -678,9 +627,7 @@ static GtkWidget *build_game_screen(void) {
     return hpaned;
 }
 
-/* ─────────────────────────────────────────────────────
-   App activate
-   ───────────────────────────────────────────────────── */
+//run app
 static void on_activate(GtkApplication *app, gpointer data) {
     (void)data;
     apply_css();
