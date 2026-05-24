@@ -311,7 +311,6 @@ static void next_round(void) {
 
             int tb[5];
             /* get tiebreak from eval */
-            int tb[5];
             { /* derive tiebreak from best5 */
                 int cnt[13]={0};
                 for(int k=0;k<5;k++) if(best5[k].rank>=0) cnt[best5[k].rank]++;
