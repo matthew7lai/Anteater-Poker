@@ -1,0 +1,15 @@
+COPYRIGHT — Anteater Poker
+Team 23 | EECS 22L | University of California, Irvine | 2026
+
+This software was developed for educational purposes as part of
+EECS 22L "Software Engineering Project in C Language" at UCI.
+
+All original source code, documentation, and related materials
+are the work of Team 23 unless otherwise credited.
+
+This software may not be sold or redistributed for commercial
+purposes without written permission from the authors.
+
+External libraries used:
+  - GTK+ 3  (LGPL v2.1)  https://www.gtk.org
+  - GLib    (LGPL v2.1)  https://docs.gtk.org/glib/

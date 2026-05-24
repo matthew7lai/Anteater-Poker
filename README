@@ -1,0 +1,41 @@
+Anteater Poker — Alpha Release
+Team 23 | EECS 22L | University of California, Irvine
+Version: Alpha  |  Date: May 2026
+
+AUTHORS
+-------
+Team 23 — EECS 22L Spring 2026, UCI
+
+DESCRIPTION
+-----------
+Anteater Poker is an online multiplayer Texas Hold'em variant featuring
+the UCI Anteater Wild Card mechanic. Players connect to a central server,
+choose a seat, and play against other humans or bots using a GTK3 GUI.
+
+QUICK START
+-----------
+See INSTALL for full build instructions.
+
+  1. Start the server:
+       poker/bin/poker_server &
+
+  2. Launch one or more clients:
+       poker/bin/poker_client
+
+  3. On the login screen, enter your username, the server IP, and port
+     (default: 127.0.0.1:9000), then click "Connect & Join Game".
+
+  4. The server dashboard allows adding bots and dealing new hands.
+
+ANTEATER WILD CARD RULE
+-----------------------
+One player per round is randomly dealt the Anteater Wild Card (🐜).
+The Wild Card can substitute for any rank or suit to form the best
+possible 5-card hand. If the Wild Card is used in the winning hand,
+the winner receives a bonus of 200 points on top of the pot.
+
+For full rules and user manual, see:
+  poker/doc/Poker_UserManual.pdf
+
+For software architecture details, see:
+  poker/doc/Poker_SoftwareSpec.pdf

@@ -1,0 +1,68 @@
+INSTALL — Anteater Poker Alpha
+Team 23 | EECS 22L | UCI
+
+DEPENDENCIES
+------------
+  - GCC (C99 or later)
+  - GTK+3 development libraries
+  - POSIX threads (pthreads) — included with glibc on Linux
+  - GNU Make
+  - pkg-config
+
+On the EECS Linux servers (bondi, crystalcove, etc.) these are
+already available. On a fresh Ubuntu/Debian machine:
+
+  sudo apt-get install gcc make libgtk-3-dev pkg-config
+
+BUILDING FROM SOURCE
+--------------------
+  1. Unpack the source archive:
+       gtar xvzf Poker_Alpha_src.tar.gz
+
+  2. Enter the project directory:
+       cd poker
+
+  3. Build all executables:
+       make
+
+     Executables are placed in poker/bin/:
+       poker/bin/poker_server
+       poker/bin/poker_client
+
+  4. Run unit tests:
+       make test
+
+  5. Clean build artifacts:
+       make clean
+
+RUNNING (BINARY RELEASE)
+-------------------------
+  1. Unpack the binary archive:
+       gtar xvzf Poker_Alpha.tar.gz
+
+  2. Read the user manual:
+       evince poker/doc/Poker_UserManual.pdf
+
+  3. Start the server (background):
+       poker/bin/poker_server &
+
+  4. Launch the client:
+       poker/bin/poker_client
+
+CUSTOM PORT
+-----------
+  poker/bin/poker_server 9001 &
+  (clients should enter port 9001 on the login screen)
+
+NETWORK PLAY
+------------
+  - Run poker_server on one machine.
+  - Each player runs poker_client on their machine.
+  - Enter the server machine's IP address on the login screen.
+  - Ensure port 9000 (or your chosen port) is not blocked by a firewall.
+
+UNINSTALLING
+------------
+  pkill poker_server
+  pkill poker_client
+  rm -rf poker/
