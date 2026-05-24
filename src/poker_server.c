@@ -309,21 +309,20 @@ static void next_round(void) {
                 for (int k=0;k<5;k++)
                     if (best5[k].is_wild) p->used_wild=1;
 
-            int tb[5]; eval_best_hand_tb: ;
+            int tb[5];
             /* get tiebreak from eval */
-            int dummy_tb[5];
-            evaluate_best_hand(pool, np, best5, hname); /* already have rank */
-            /* re-derive tb from rank+best5 */
-            int cnt[13]={0};
-            for(int k=0;k<5;k++) if(best5[k].rank>=0) cnt[best5[k].rank]++;
-            int oi=0;
-            for(int freq=4;freq>=1;freq--)
-                for(int r=12;r>=0;r--)
-                    if(cnt[r]==freq)
-                        for(int k=0;k<freq&&oi<5;k++)
-                            dummy_tb[oi++]=r;
-            while(oi<5) dummy_tb[oi++]=-1;
-            memcpy(tb, dummy_tb, sizeof(tb));
+            int tb[5];
+            { /* derive tiebreak from best5 */
+                int cnt[13]={0};
+                for(int k=0;k<5;k++) if(best5[k].rank>=0) cnt[best5[k].rank]++;
+                int oi=0;
+                for(int freq=4;freq>=1;freq--)
+                    for(int r=12;r>=0;r--)
+                        if(cnt[r]==freq)
+                            for(int k=0;k<freq&&oi<5;k++)
+                                tb[oi++]=r;
+                while(oi<5) tb[oi++]=-1;
+            }
 
             server_log("Player %s: %s (rank %d)", p->name, hname, rank);
 
@@ -414,15 +413,17 @@ static void advance_turn(void) {
 /* ── Simple bot decision ─────────────────────────────── */
 static void bot_act(int seat) {
     Player *p = &table.players[seat];
-    /* Simple strategy: call if bet ≤ 100, fold otherwise (random raise) */
     int to_call = table.current_bet - p->current_bet;
     char action[16];
     int amount = 0;
 
+    /* Cap raises: only raise if pot is small and random chance */
+    int can_raise = (table.pot < 500) && (rand()%4 == 0);
+
     if (to_call == 0) {
-        if (rand()%3 == 0) { snprintf(action,16,"RAISE"); amount=50; }
+        if (can_raise) { snprintf(action,16,"RAISE"); amount=50; }
         else snprintf(action,16,"CHECK");
-    } else if (to_call <= 100) {
+    } else if (to_call <= 200) {
         snprintf(action,16,"CALL");
     } else {
         snprintf(action,16,"FOLD");
@@ -486,7 +487,7 @@ static void process_action(int seat, char *action_str, int amount) {
     advance_turn();
 
     /* If next player is a bot, act immediately */
-    while (table.players[table.current_turn].is_bot &&
+    while (slots[table.current_turn].is_bot &&
            !table.hand_over &&
            table.players[table.current_turn].active &&
            !table.players[table.current_turn].folded) {
@@ -627,7 +628,7 @@ static void add_bots(int count) {
             snprintf(bname, MAX_NAME_LEN, "%s%d", BOT_PREFIX, added+1);
             strncpy(p->name, bname, MAX_NAME_LEN-1);
             p->seat = i; p->active = 1; p->points = DEFAULT_POINTS;
-            p->folded = 0; p->is_bot = 1;  /* flag on Player not in types.h, skip */
+            p->folded = 0; slots[i].is_bot = 1; /* bot flag */
             slots[i].fd = -1; slots[i].seat = i; slots[i].is_bot = 1;
             added++;
             server_log("Bot '%s' added to seat %d", bname, i);
