@@ -380,6 +380,13 @@ static void next_round(void) {
 
 /* ── Advance turn to next active player ─────────────── */
 static void advance_turn(void) {
+    /* Count active players still in hand */
+    int active_in_hand = 0;
+    for (int i=0;i<MAX_PLAYERS;i++)
+        if (table.players[i].active && !table.players[i].folded) active_in_hand++;
+    if (active_in_hand <= 1) { next_round(); return; }
+
+    /* Find next active player */
     int start = table.current_turn;
     do {
         table.current_turn = (table.current_turn + 1) % MAX_PLAYERS;
@@ -387,22 +394,23 @@ static void advance_turn(void) {
                table.players[table.current_turn].folded)
              && table.current_turn != start);
 
-    /* Count active players still in hand */
-    int active_in_hand = 0;
-    for (int i=0;i<MAX_PLAYERS;i++)
-        if (table.players[i].active && !table.players[i].folded) active_in_hand++;
-
-    if (active_in_hand <= 1) { next_round(); return; }
-
-    /* Check if everyone has matched the current bet */
-    int all_matched = 1;
+    /* Check if everyone has acted (matched the bet or checked) */
+    int all_acted = 1;
     for (int i=0;i<MAX_PLAYERS;i++) {
         Player *p=&table.players[i];
         if (!p->active || p->folded) continue;
-        if (p->current_bet < table.current_bet) { all_matched=0; break; }
+        if (p->current_bet < table.current_bet) { all_acted=0; break; }
     }
-    if (all_matched && table.current_turn == (table.dealer_seat+1)%MAX_PLAYERS)
-        { next_round(); return; }
+
+    /* If we've gone all the way around and everyone matched -> next round */
+    if (all_acted) {
+        /* Check if current turn is back to first active after dealer */
+        int first = (table.dealer_seat + 1) % MAX_PLAYERS;
+        while (!table.players[first].active || table.players[first].folded)
+            first = (first + 1) % MAX_PLAYERS;
+        if (table.current_turn == first)
+            { next_round(); return; }
+    }
 
     broadcast("%s|%d|%d|%d", MSG_TURN,
               table.current_turn, table.current_bet, table.pot);
@@ -416,13 +424,11 @@ static void bot_act(int seat) {
     char action[16];
     int amount = 0;
 
-    /* Cap raises: only raise if pot is small and random chance */
-    int can_raise = (table.pot < 500) && (rand()%4 == 0);
-
     if (to_call == 0) {
-        if (can_raise) { snprintf(action,16,"RAISE"); amount=50; }
-        else snprintf(action,16,"CHECK");
-    } else if (to_call <= 200) {
+        /* No bet to match - check always, never raise */
+        snprintf(action,16,"CHECK");
+    } else if (to_call <= p->points) {
+        /* Always call if we have the points */
         snprintf(action,16,"CALL");
     } else {
         snprintf(action,16,"FOLD");
