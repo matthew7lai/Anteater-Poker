@@ -37,7 +37,7 @@ tar: clean
 	tar --exclude='.git' \
 	    --exclude='*.tar.gz' \
 	    -czf ../$(SRC_TAR) \
-	    -C .. poker/
+	    -C .. Anteater-Poker/
 	@echo "Created ../$(SRC_TAR)"
 
 # Create binary tarball (Poker_Beta.tar.gz)
