@@ -1,10 +1,8 @@
 # src/Makefile — Anteater Poker  (Team 23, EECS 22L)
-# Targets: all, test, test-gui, clean
-
+# Targets: all, test, test-gui, test-comm, clean
 CC      = gcc
 CFLAGS  = -Wall -Wextra -g $(shell pkg-config --cflags gtk+-3.0)
 LDFLAGS = $(shell pkg-config --libs gtk+-3.0) -lpthread
-
 BINDIR  = ../bin
 
 SERVER_SRC = poker_server.c eval.c
@@ -15,7 +13,7 @@ SERVER_OBJ = $(SERVER_SRC:.c=.o)
 CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
 TEST_OBJ   = $(TEST_SRC:.c=.o)
 
-.PHONY: all test test-gui clean
+.PHONY: all test test-gui test-comm clean
 
 all: $(BINDIR)/poker_server $(BINDIR)/poker_client
 
@@ -34,7 +32,7 @@ $(BINDIR)/test_poker: $(TEST_OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $
 
 # Non-GUI unit tests (runs headlessly)
 test: $(BINDIR)/test_poker
@@ -48,6 +46,15 @@ test-gui: $(BINDIR)/poker_server $(BINDIR)/poker_client
 	@echo "=== GUI smoke test: launching client ==="
 	@timeout 3 $(BINDIR)/poker_client --headless || true
 	@echo "=== GUI smoke test done ==="
+
+# Communication test: start server, connect a client, check handshake
+test-comm: $(BINDIR)/poker_server $(BINDIR)/poker_client
+	@echo "=== Communication test: starting server ==="
+	@$(BINDIR)/poker_server &
+	@sleep 1
+	@echo "=== Communication test: connecting client ==="
+	@timeout 3 $(BINDIR)/poker_client --headless || true
+	@echo "=== Communication test done ==="
 
 clean:
 	rm -f *.o $(BINDIR)/poker_server $(BINDIR)/poker_client $(BINDIR)/test_poker
