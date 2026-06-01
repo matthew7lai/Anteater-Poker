@@ -151,6 +151,7 @@ static gboolean refresh_dashboard(gpointer data) {
 static void bot_act(int seat);
 static void advance_turn(void);
 static void next_round(void);
+static void deal_round(void);
 
 //bot logic
 static void bot_act(int seat) {
