@@ -42,7 +42,7 @@ static GtkWidget *player_grid;
 static GtkWidget *chat_view;
 static GtkWidget *chat_entry;
 static GtkTextBuffer *chat_buf;
-static GtkWidget *btn_call, *btn_raise, *btn_fold, *btn_check;
+static GtkWidget *btn_call, *btn_raise, *btn_fold, *btn_check, *btn_allin;
 static GtkWidget *raise_spin;
 
 //css
@@ -166,12 +166,14 @@ static gboolean do_refresh(gpointer data) {
             gtk_widget_set_sensitive(btn_raise, TRUE);
             gtk_widget_set_sensitive(btn_fold,  TRUE);
             gtk_widget_set_sensitive(btn_check, TRUE);
+            gtk_widget_set_sensitive(btn_allin, TRUE);
         } else {
             gtk_label_set_text(GTK_LABEL(turn_label), "Waiting...");
             gtk_widget_set_sensitive(btn_call,  FALSE);
             gtk_widget_set_sensitive(btn_raise, FALSE);
             gtk_widget_set_sensitive(btn_fold,  FALSE);
             gtk_widget_set_sensitive(btn_check, FALSE);
+            gtk_widget_set_sensitive(btn_allin, FALSE);
         }
     }
 
@@ -400,6 +402,10 @@ static void send_to_server(const char *fmt, ...) {
 }
 
 //button callbacks
+static void on_allin(GtkButton *b, gpointer d) { (void)b;(void)d;
+    send_to_server("%s|RAISE|%d", MSG_ACTION, my_points); my_turn=0;
+    g_idle_add(do_refresh,GINT_TO_POINTER(RT_STATUS)); }
+
 static void on_call(GtkButton *b,  gpointer d) { (void)b;(void)d;
     send_to_server("%s|CALL|0", MSG_ACTION); my_turn=0;
     g_idle_add(do_refresh,GINT_TO_POINTER(RT_STATUS)); }
@@ -422,7 +428,7 @@ static void on_chat_send(GtkButton *b, gpointer d) { (void)b;(void)d;
     if (msg && strlen(msg)>0) {
         send_to_server("%s|%s", MSG_CHAT, msg);
         gtk_entry_set_text(GTK_ENTRY(chat_entry),"");
-    }
+    }                           
 }
 
 //login button
@@ -582,6 +588,13 @@ static GtkWidget *build_game_screen(void) {
     gtk_box_pack_start(GTK_BOX(act_box),btn_raise,FALSE,FALSE,0);
     gtk_box_pack_start(GTK_BOX(act_box),raise_spin,FALSE,FALSE,0);
     gtk_box_pack_start(GTK_BOX(act_box),btn_fold, FALSE,FALSE,0);
+
+    /* All In button */
+    btn_allin=gtk_button_new_with_label("All In");
+    add_cls(btn_allin,"btn-raise");
+    g_signal_connect(btn_allin,"clicked",G_CALLBACK(on_allin),NULL);
+    gtk_widget_set_sensitive(btn_allin,FALSE);
+    gtk_box_pack_start(GTK_BOX(act_box),btn_allin,FALSE,FALSE,0);
 
     status_label=gtk_label_new("Connecting to server...");
     add_cls(status_label,"info-lbl");
