@@ -276,6 +276,10 @@ static void *auto_restart_thread(void *arg) {
     (void)arg;
     sleep(5);
     pthread_mutex_lock(&table_lock);
+    if (table.game_started) {
+        pthread_mutex_unlock(&table_lock);
+        return NULL;
+    }
     int still_active = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
         if (table.players[i].active && table.players[i].points > 0)
