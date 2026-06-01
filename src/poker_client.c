@@ -167,6 +167,7 @@ static gboolean do_refresh(gpointer data) {
             gtk_widget_set_sensitive(btn_fold,  TRUE);
             gtk_widget_set_sensitive(btn_check, TRUE);
             gtk_widget_set_sensitive(btn_allin, TRUE);
+            gtk_spin_button_set_range(GTK_SPIN_BUTTON(raise_spin), 10, my_points);
         } else {
             gtk_label_set_text(GTK_LABEL(turn_label), "Waiting...");
             gtk_widget_set_sensitive(btn_call,  FALSE);
