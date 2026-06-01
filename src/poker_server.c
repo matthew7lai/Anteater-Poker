@@ -212,6 +212,51 @@ static void bot_act(int seat) {
     advance_turn();
 }
 
+//advance turn
+static void advance_turn(void) {
+    if (table.hand_over) return;
+
+    int active_count = 0;
+    for (int i = 0; i < MAX_PLAYERS; i++)
+        if (table.players[i].active && !table.players[i].folded)
+            active_count++;
+
+    if (active_count <= 1) { next_round(); return; }
+
+    int all_matched = 1;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        Player *p = &table.players[i];
+        if (!p->active || p->folded) continue;
+        if (p->current_bet < table.current_bet) { all_matched = 0; break; }
+    }
+
+    int start = table.current_turn;
+    do {
+        table.current_turn = (table.current_turn + 1) % MAX_PLAYERS;
+    } while ((!table.players[table.current_turn].active ||
+               table.players[table.current_turn].folded) &&
+              table.current_turn != start);
+
+    int first_active = (table.dealer_seat + 1) % MAX_PLAYERS;
+    while (!table.players[first_active].active ||
+            table.players[first_active].folded)
+        first_active = (first_active + 1) % MAX_PLAYERS;
+
+    if (all_matched && table.current_turn == first_active) {
+        next_round();
+        return;
+    }
+
+    broadcast("%s|%d|%d|%d", MSG_TURN,
+              table.current_turn, table.current_bet, table.pot);
+    g_idle_add(refresh_dashboard, NULL);
+
+    if (slots[table.current_turn].is_bot) {
+        usleep(600000);
+        bot_act(table.current_turn);
+    }
+}
+
 //next betting round
 static void next_round(void) {
     //reset bets
