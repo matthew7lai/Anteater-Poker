@@ -156,65 +156,58 @@ static void bot_act(int seat) {
     if (!p->active || p->folded || table.hand_over) return;
 
     int to_call = table.current_bet - p->current_bet;
+    int r = rand() % 100;  /* 0-99 random number for decision making */
 
     if (to_call == 0) {
-        broadcast("%s|%s checks", MSG_INFO, p->name);
-    } else if (to_call <= p->points) {
-        p->points    -= to_call;
-        p->current_bet += to_call;
-        table.pot    += to_call;
-        broadcast("%s|%s calls %d", MSG_INFO, p->name, to_call);
+        /* no bet to call — check or occasionally raise */
+        if (r < 25 && p->points >= BIG_BLIND) {
+            /* 25% chance to raise */
+            int raise_amt = BIG_BLIND + (rand() % 3) * BIG_BLIND;
+            if (raise_amt > p->points) raise_amt = p->points;
+            p->points        -= raise_amt;
+            p->current_bet   += raise_amt;
+            table.current_bet = p->current_bet;
+            table.pot        += raise_amt;
+            broadcast("%s|%s raises to %d", MSG_INFO, p->name, p->current_bet);
+        } else {
+            /* 75% chance to check */
+            broadcast("%s|%s checks", MSG_INFO, p->name);
+        }
     } else {
-        p->folded = 1;
-        broadcast("%s|%s folds", MSG_INFO, p->name);
+        /* there's a bet to call */
+        if (r < 15) {
+            /* 15% chance to fold */
+            p->folded = 1;
+            broadcast("%s|%s folds", MSG_INFO, p->name);
+        } else if (r < 75 && to_call <= p->points) {
+            /* 60% chance to call */
+            p->points      -= to_call;
+            p->current_bet += to_call;
+            table.pot      += to_call;
+            broadcast("%s|%s calls %d", MSG_INFO, p->name, to_call);
+        } else if (p->points >= to_call + BIG_BLIND) {
+            /* 25% chance to raise */
+            int raise_amt = to_call + BIG_BLIND * (1 + rand() % 3);
+            if (raise_amt > p->points) raise_amt = p->points;
+            p->points        -= raise_amt;
+            p->current_bet   += raise_amt;
+            table.current_bet = p->current_bet;
+            table.pot        += raise_amt;
+            broadcast("%s|%s raises to %d", MSG_INFO, p->name, p->current_bet);
+        } else if (to_call <= p->points) {
+            /* fallback: call if can afford */
+            p->points      -= to_call;
+            p->current_bet += to_call;
+            table.pot      += to_call;
+            broadcast("%s|%s calls %d", MSG_INFO, p->name, to_call);
+        } else {
+            p->folded = 1;
+            broadcast("%s|%s folds", MSG_INFO, p->name);
+        }
     }
 
     broadcast_points();
     advance_turn();
-}
-
-static void advance_turn(void) {
-    if (table.hand_over) return;
-
-    int active_count = 0;
-    for (int i = 0; i < MAX_PLAYERS; i++)
-        if (table.players[i].active && !table.players[i].folded)
-            active_count++;
-
-    if (active_count <= 1) { next_round(); return; }
-
-    int all_matched = 1;
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        Player *p = &table.players[i];
-        if (!p->active || p->folded) continue;
-        if (p->current_bet < table.current_bet) { all_matched = 0; break; }
-    }
-
-    int start = table.current_turn;
-    do {
-        table.current_turn = (table.current_turn + 1) % MAX_PLAYERS;
-    } while ((!table.players[table.current_turn].active ||
-               table.players[table.current_turn].folded) &&
-              table.current_turn != start);
-
-    int first_active = (table.dealer_seat + 1) % MAX_PLAYERS;
-    while (!table.players[first_active].active ||
-            table.players[first_active].folded)
-        first_active = (first_active + 1) % MAX_PLAYERS;
-
-    if (all_matched && table.current_turn == first_active) {
-        next_round();
-        return;
-    }
-
-    broadcast("%s|%d|%d|%d", MSG_TURN,
-              table.current_turn, table.current_bet, table.pot);
-    g_idle_add(refresh_dashboard, NULL);
-
-    if (slots[table.current_turn].is_bot) {
-        usleep(600000); 
-        bot_act(table.current_turn);
-    }
 }
 
 //next betting round
