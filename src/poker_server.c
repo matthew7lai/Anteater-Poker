@@ -358,7 +358,7 @@ static void next_round(void) {
         }
 
 //award the points
-       int bonus = 0;
+    int bonus = 0;
         if (!tie && winner >= 0) {
             table.winner_seat = winner;
             if (table.players[winner].used_wild) bonus = WILDCARD_BONUS;
@@ -391,11 +391,27 @@ static void next_round(void) {
                 p->wild_card.is_wild);
         }
 
-        broadcast_points();
-        table.game_started = 0;
-        table.pot          = 0;
-        g_idle_add(refresh_dashboard, NULL);
-        return;
+broadcast_points();
+table.pot          = 0;
+g_idle_add(refresh_dashboard, NULL);
+
+/* auto-restart after 5 seconds */
+broadcast("%s|New hand starting in 5 seconds...", MSG_INFO);
+sleep(5);
+
+int still_active = 0;
+for (int i = 0; i < MAX_PLAYERS; i++)
+    if (table.players[i].active && table.players[i].points > 0)
+        still_active++;
+
+if (still_active >= 2) {
+    table.game_started = 1;
+    deal_round();
+} else {
+    table.game_started = 0;
+    broadcast("%s|Not enough players to continue.", MSG_INFO);
+}
+return;
     }
 
 //reset turn
