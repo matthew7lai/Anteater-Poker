@@ -275,14 +275,18 @@ static void advance_turn(void) {
 static void *auto_restart_thread(void *arg) {
     (void)arg;
     sleep(5);
+    pthread_mutex_lock(&table_lock);
     int still_active = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
         if (table.players[i].active && table.players[i].points > 0)
             still_active++;
     if (still_active >= 2) {
         table.game_started = 1;
+        pthread_mutex_unlock(&table_lock);
         deal_round();
     } else {
+        table.game_started = 0;
+        pthread_mutex_unlock(&table_lock);
         broadcast("%s|Not enough players to continue.", MSG_INFO);
     }
     return NULL;
@@ -452,6 +456,18 @@ return;
 //deal new hand
 static void deal_round(void) {
     pthread_mutex_lock(&table_lock);
+
+    /* refill bots / sit out broke players */
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (table.players[i].active && table.players[i].points <= 0) {
+            if (slots[i].is_bot)
+                table.players[i].points = DEFAULT_POINTS;
+            else {
+                broadcast("%s|%s is out of points and sits out!", MSG_INFO, table.players[i].name);
+                table.players[i].active = 0;
+            }
+        }
+    }
 
     build_deck();
     shuffle_deck();
