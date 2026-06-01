@@ -224,6 +224,19 @@ static void advance_turn(void) {
 
     if (active_count <= 1) { next_round(); return; }
 
+    /* check if all remaining players are all-in */
+    int all_allin = 1;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (!table.players[i].active || table.players[i].folded) continue;
+        if (table.players[i].points > 0) { all_allin = 0; break; }
+    }
+    if (all_allin) {
+        /* run out the board automatically */
+        next_round();
+        return;
+    }
+
+
     int all_matched = 1;
     for (int i = 0; i < MAX_PLAYERS; i++) {
         Player *p = &table.players[i];
