@@ -246,16 +246,18 @@ static void handle_message(char *line) {
         g_idle_add(do_refresh, GINT_TO_POINTER(RT_PLAYERS));
 
     } else if (strcmp(tok, MSG_DEAL)==0) {
-       
-        int r0=atoi(strtok(NULL,"|")), s0=atoi(strtok(NULL,"|"));
-        int r1=atoi(strtok(NULL,"|")), s1=atoi(strtok(NULL,"|"));
-        int wr=atoi(strtok(NULL,"|")), ws=atoi(strtok(NULL,"|"));
-        my_hand[0]=(Card){r0,s0,0}; my_hand[1]=(Card){r1,s1,0};
-        if (wr>=0) my_wild=(Card){wr,ws,1};
-        else       my_wild=(Card){-1,-1,0};
-        ltable.community_count=0;
-        g_idle_add(do_refresh, GINT_TO_POINTER(RT_ALL));
-
+    int r0=atoi(strtok(NULL,"|")), s0=atoi(strtok(NULL,"|"));
+    int r1=atoi(strtok(NULL,"|")), s1=atoi(strtok(NULL,"|"));
+    int wr=atoi(strtok(NULL,"|")), ws=atoi(strtok(NULL,"|"));
+    my_hand[0]=(Card){r0,s0,0}; my_hand[1]=(Card){r1,s1,0};
+    if (wr>=0) my_wild=(Card){wr,ws,1};
+    else       my_wild=(Card){-1,-1,0};
+    ltable.community_count=0;
+    my_turn=0;                     
+    current_bet=0;                      
+    pot_val=0;                         
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(raise_spin), 50);
+    g_idle_add(do_refresh, GINT_TO_POINTER(RT_ALL));
     } else if (strcmp(tok, MSG_COMMUNITY)==0) {
         ltable.community_count=0;
         char *t;
