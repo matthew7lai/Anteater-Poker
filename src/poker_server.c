@@ -258,6 +258,23 @@ static void advance_turn(void) {
     }
 }
 
+//auto restart
+static void *auto_restart_thread(void *arg) {
+    (void)arg;
+    sleep(5);
+    int still_active = 0;
+    for (int i = 0; i < MAX_PLAYERS; i++)
+        if (table.players[i].active && table.players[i].points > 0)
+            still_active++;
+    if (still_active >= 2) {
+        table.game_started = 1;
+        deal_round();
+    } else {
+        broadcast("%s|Not enough players to continue.", MSG_INFO);
+    }
+    return NULL;
+}
+
 //next betting round
 static void next_round(void) {
     //reset bets
@@ -394,26 +411,14 @@ static void next_round(void) {
 
 broadcast_points();
 table.pot          = 0;
+table.game_started = 0;
 g_idle_add(refresh_dashboard, NULL);
-
-/* auto-restart after 5 seconds */
 broadcast("%s|New hand starting in 5 seconds...", MSG_INFO);
-sleep(5);
-
-int still_active = 0;
-for (int i = 0; i < MAX_PLAYERS; i++)
-    if (table.players[i].active && table.players[i].points > 0)
-        still_active++;
-
-if (still_active >= 2) {
-    table.game_started = 1;
-    deal_round();
-} else {
-    table.game_started = 0;
-    broadcast("%s|Not enough players to continue.", MSG_INFO);
-}
+pthread_t rt;
+pthread_create(&rt, NULL, auto_restart_thread, NULL);
+pthread_detach(rt);
 return;
-    }
+}
 
 //reset turn
    table.current_turn = (table.dealer_seat + 1) % MAX_PLAYERS;
