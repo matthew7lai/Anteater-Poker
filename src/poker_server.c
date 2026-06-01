@@ -375,6 +375,9 @@ static void next_round(void) {
 }
 
 //deal new hand
+#define SMALL_BLIND 25
+#define BIG_BLIND   50
+
 static void deal_round(void) {
     pthread_mutex_lock(&table_lock);
 
@@ -389,24 +392,23 @@ static void deal_round(void) {
     table.winner_seat     = -1;
     memset(table.winner_hand_name, 0, sizeof(table.winner_hand_name));
 
-    // reset all players for new hand
     for (int i = 0; i < MAX_PLAYERS; i++) {
         table.players[i].folded      = 0;
         table.players[i].current_bet = 0;
         table.players[i].used_wild   = 0;
-        table.players[i].wild_card.rank   = -1;
-        table.players[i].wild_card.suit   = -1;
+        table.players[i].wild_card.rank    = -1;
+        table.players[i].wild_card.suit    = -1;
         table.players[i].wild_card.is_wild = 0;
     }
 
-    //deal 2 cards to each player
+    /* deal 2 cards to each active player */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (!table.players[i].active) continue;
         table.players[i].hand[0] = deal_one();
         table.players[i].hand[1] = deal_one();
     }
 
-    //distrubute anteater wild card
+    /* distribute anteater wild card */
     int active_seats[MAX_PLAYERS]; int active_count = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
         if (table.players[i].active) active_seats[active_count++] = i;
@@ -417,13 +419,42 @@ static void deal_round(void) {
                    table.players[lucky].name, lucky);
     }
 
-    // rotate dealer button
+    /* rotate dealer */
     do {
         table.dealer_seat = (table.dealer_seat + 1) % MAX_PLAYERS;
     } while (!table.players[table.dealer_seat].active);
 
-    //player after dealer acts
-    table.current_turn = (table.dealer_seat + 1) % MAX_PLAYERS;
+    /* find small blind and big blind seats */
+    int sb_seat = (table.dealer_seat + 1) % MAX_PLAYERS;
+    while (!table.players[sb_seat].active)
+        sb_seat = (sb_seat + 1) % MAX_PLAYERS;
+
+    int bb_seat = (sb_seat + 1) % MAX_PLAYERS;
+    while (!table.players[bb_seat].active)
+        bb_seat = (bb_seat + 1) % MAX_PLAYERS;
+
+    /* post small blind */
+    int sb_amt = (table.players[sb_seat].points >= SMALL_BLIND) ? SMALL_BLIND : table.players[sb_seat].points;
+    table.players[sb_seat].points      -= sb_amt;
+    table.players[sb_seat].current_bet  = sb_amt;
+    table.pot                          += sb_amt;
+
+    /* post big blind */
+    int bb_amt = (table.players[bb_seat].points >= BIG_BLIND) ? BIG_BLIND : table.players[bb_seat].points;
+    table.players[bb_seat].points      -= bb_amt;
+    table.players[bb_seat].current_bet  = bb_amt;
+    table.pot                          += bb_amt;
+    table.current_bet                   = bb_amt;
+
+    server_log("Blinds posted: seat %d (SB %d), seat %d (BB %d)",
+               sb_seat, sb_amt, bb_seat, bb_amt);
+    broadcast("%s|Blinds: %s posts small blind %d, %s posts big blind %d",
+              MSG_INFO,
+              table.players[sb_seat].name, sb_amt,
+              table.players[bb_seat].name, bb_amt);
+
+    /* first to act is player after big blind */
+    table.current_turn = (bb_seat + 1) % MAX_PLAYERS;
     while (!table.players[table.current_turn].active)
         table.current_turn = (table.current_turn + 1) % MAX_PLAYERS;
 
@@ -432,7 +463,7 @@ static void deal_round(void) {
     server_log("New hand dealt. Dealer: seat %d", table.dealer_seat);
     g_idle_add(refresh_dashboard, NULL);
 
-    //gives each player their own cards
+    /* send each player their cards */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (!table.players[i].active) continue;
         send_msg(slots[i].fd, "%s|%d|%d|%d|%d|%d|%d",
@@ -445,11 +476,10 @@ static void deal_round(void) {
             table.players[i].wild_card.suit);
     }
 
-    //announce first turn cards
+    broadcast_points();
     broadcast("%s|%d|%d|%d", MSG_TURN,
               table.current_turn, table.current_bet, table.pot);
 
-    //trigger bto
     if (slots[table.current_turn].is_bot) {
         usleep(600000);
         bot_act(table.current_turn);
