@@ -12,6 +12,8 @@
 #include "eval.h"
 
 #define BOT_PREFIX "Bot"
+#define SMALL_BLIND 25
+#define BIG_BLIND   50
 
 typedef struct {
     int fd;
@@ -368,9 +370,6 @@ static void next_round(void) {
 }
 
 //deal new hand
-#define SMALL_BLIND 25
-#define BIG_BLIND   50
-
 static void deal_round(void) {
     pthread_mutex_lock(&table_lock);
 
