@@ -312,6 +312,27 @@ for (int i = 0; i < MAX_PLAYERS; i++) {
 
 //next betting round
 static void next_round(void) {
+    /* if only one player left, they win immediately */
+    int active_count = 0, last_seat = -1;
+    for (int i = 0; i < MAX_PLAYERS; i++)
+        if (table.players[i].active && !table.players[i].folded)
+            { active_count++; last_seat = i; }
+    if (active_count == 1) {
+        table.hand_over = 1;
+        table.winner_seat = last_seat;
+        table.players[last_seat].points += table.pot;
+        snprintf(table.winner_hand_name, 32, "Last Player Standing");
+        broadcast("%s|%d|%s|%d|0", MSG_RESULT, last_seat, table.winner_hand_name, table.pot);
+        broadcast_points();
+        table.pot = 0;
+        table.game_started = 0;
+        g_idle_add(refresh_dashboard, NULL);
+        broadcast("%s|New hand starting in 5 seconds...", MSG_INFO);
+        pthread_t rt;
+        pthread_create(&rt, NULL, auto_restart_thread, NULL);
+        pthread_detach(rt);
+        return;
+    }
     //reset bets
     for (int i = 0; i < MAX_PLAYERS; i++)
         table.players[i].current_bet = 0;
