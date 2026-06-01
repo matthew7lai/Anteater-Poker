@@ -280,6 +280,11 @@ static void *auto_restart_thread(void *arg) {
         pthread_mutex_unlock(&table_lock);
         return NULL;
     }
+    /* refill bots first */
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (table.players[i].active && slots[i].is_bot && table.players[i].points <= 0)
+            table.players[i].points = DEFAULT_POINTS;
+    }
     int still_active = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
         if (table.players[i].active && table.players[i].points > 0)
