@@ -281,10 +281,19 @@ static void *auto_restart_thread(void *arg) {
         return NULL;
     }
     /* refill bots first */
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (table.players[i].active && slots[i].is_bot && table.players[i].points <= 0)
-            table.players[i].points = DEFAULT_POINTS;
+for (int i = 0; i < MAX_PLAYERS; i++) {
+    if (table.players[i].active && slots[i].is_bot && table.players[i].points <= 0)
+        table.players[i].points = DEFAULT_POINTS;
+}
+
+/* refill human players with 0 points too */
+for (int i = 0; i < MAX_PLAYERS; i++) {
+    if (table.players[i].active && !slots[i].is_bot && table.players[i].points <= 0) {
+        table.players[i].points = DEFAULT_POINTS;
+        broadcast("%s|%s has been refilled with %d points!",
+                  MSG_INFO, table.players[i].name, DEFAULT_POINTS);
     }
+}
     int still_active = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
         if (table.players[i].active && table.players[i].points > 0)
