@@ -32,7 +32,7 @@ $(BINDIR)/test_poker: $(TEST_OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Non-GUI unit tests (runs headlessly)
 test: $(BINDIR)/test_poker
