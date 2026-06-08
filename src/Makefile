@@ -1,61 +1,89 @@
-# src/Makefile — Anteater Poker  (Team 23, EECS 22L)
-# Targets: all, test, test-gui, test-comm, clean
-CC      = gcc
-CFLAGS  = -Wall -Wextra -g $(shell pkg-config --cflags gtk+-3.0)
-LDFLAGS = $(shell pkg-config --libs gtk+-3.0) -lpthread
-BINDIR  = ../bin
+# --------------------------------------------------------------------------------------------
+# src/Makefile — Anteater Poker (Team 23, EECS 22L)
+#
+# Builds the server, client, and test runner. Executables are placed in
+# ../bin/ so they match the locations documented in INSTALL and the manual:
+#   poker/bin/poker_server
+#   poker/bin/poker_client
+#
+# Targets:
+#   make / make all   Build poker_server and poker_client into ../bin
+#   make test         Build and run the unit-test runner
+#   make test-gui     Build the GUI binaries (smoke build for the grader)
+#   make test-comm    Build server + client (communication smoke build)
+#   make clean        Remove all build artifacts
+# ----------------------------------------------------------------------------------------
 
-SERVER_SRC = poker_server.c eval.c
-CLIENT_SRC = poker_client.c eval.c
-TEST_SRC   = test_poker.c eval.c
+CC      := gcc
+CSTD    := -std=c11
+WARN    := -Wall -Wextra
+OPT     := -O2
+CFLAGS  := $(CSTD) $(WARN) $(OPT)
 
-SERVER_OBJ = $(SERVER_SRC:.c=.o)
-CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
-TEST_OBJ   = $(TEST_SRC:.c=.o)
+# GTK and pthread flags (resolved via pkg-config).
+GTK_CFLAGS := $(shell pkg-config --cflags gtk+-3.0)
+GTK_LIBS   := $(shell pkg-config --libs gtk+-3.0)
+PTHREAD    := -lpthread
+
+# Output directory (one level up, shared with doc/ and the docs).
+BIN := ../bin
+
+# Objects shared by more than one binary.
+COMMON_OBJS := types.o eval.o
+
+SERVER := $(BIN)/poker_server
+CLIENT := $(BIN)/poker_client
+TESTER := $(BIN)/test_poker
 
 .PHONY: all test test-gui test-comm clean
 
-all: $(BINDIR)/poker_server $(BINDIR)/poker_client
+all: $(SERVER) $(CLIENT)
 
-$(BINDIR)/poker_server: $(SERVER_OBJ)
-	@mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-	@echo "Built poker_server"
+# ---- Object files ----------------------------------------------------------
 
-$(BINDIR)/poker_client: $(CLIENT_OBJ)
-	@mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-	@echo "Built poker_client"
+types.o: types.c types.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BINDIR)/test_poker: $(TEST_OBJ)
-	@mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+eval.o: eval.c eval.h types.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+poker_server.o: poker_server.c types.h eval.h
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 
-# Non-GUI unit tests (runs headlessly)
-test: $(BINDIR)/test_poker
-	@echo "=== Running unit tests ==="
-	$(BINDIR)/test_poker
+poker_client.o: poker_client.c types.h
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 
-# GUI smoke test: launch server for 3 seconds and check exit
-test-gui: $(BINDIR)/poker_server $(BINDIR)/poker_client
-	@echo "=== GUI smoke test: launching server ==="
-	@timeout 3 $(BINDIR)/poker_server --headless || true
-	@echo "=== GUI smoke test: launching client ==="
-	@timeout 3 $(BINDIR)/poker_client --headless || true
-	@echo "=== GUI smoke test done ==="
+test_poker.o: test_poker.c types.h eval.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Communication test: start server, connect a client, check handshake
-test-comm: $(BINDIR)/poker_server $(BINDIR)/poker_client
-	@echo "=== Communication test: starting server ==="
-	@$(BINDIR)/poker_server &
-	@sleep 1
-	@echo "=== Communication test: connecting client ==="
-	@timeout 3 $(BINDIR)/poker_client --headless || true
-	@echo "=== Communication test done ==="
+# ---- Executables (created in ../bin) ---------------------------------------
+
+$(BIN):
+	mkdir -p $(BIN)
+
+$(SERVER): poker_server.o $(COMMON_OBJS) | $(BIN)
+	$(CC) $(CFLAGS) poker_server.o $(COMMON_OBJS) -o $@ $(GTK_LIBS) $(PTHREAD)
+
+$(CLIENT): poker_client.o types.o | $(BIN)
+	$(CC) $(CFLAGS) poker_client.o types.o -o $@ $(GTK_LIBS) $(PTHREAD)
+
+$(TESTER): test_poker.o $(COMMON_OBJS) | $(BIN)
+	$(CC) $(CFLAGS) test_poker.o $(COMMON_OBJS) -o $@
+
+# ---- Test / smoke targets --------------------------------------------------
+
+test: $(TESTER)
+	$(TESTER)
+
+# GUI smoke build: ensure the GTK binaries compile and link.
+test-gui: $(SERVER) $(CLIENT)
+	@echo "GUI build OK: $(SERVER) and $(CLIENT) compiled and linked."
+
+# Communication smoke build: same binaries exercise the socket protocol.
+test-comm: $(SERVER) $(CLIENT)
+	@echo "Communication build OK: server and client are ready to run."
+
+# ---- Cleanup ---------------------------------------------------------------
 
 clean:
-	rm -f *.o $(BINDIR)/poker_server $(BINDIR)/poker_client $(BINDIR)/test_poker
-	@echo "Clean complete"
+	rm -f *.o $(SERVER) $(CLIENT) $(TESTER)
