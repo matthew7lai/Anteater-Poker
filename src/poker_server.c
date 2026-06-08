@@ -159,7 +159,11 @@ static void bot_act(int seat) {
     if (!p->active || p->folded || table.hand_over) return;
 
     int to_call = table.current_bet - p->current_bet;
-    int r = rand() % 100;  /* 0-99 random number for decision making */
+    int r = rand() % 100;
+
+    int can_raise = (p->points > to_call + BIG_BLIND) && 
+                    (table.current_bet < p->points / 2);
+
 
     if (to_call == 0) {
         /* no bet to call — check or occasionally raise */
