@@ -616,14 +616,19 @@ static void deal_round(void) {
 //human action
 static void process_action(int seat, char *action_str, int amount) {
     pthread_mutex_lock(&table_lock);
-
     if (seat != table.current_turn) {
         send_msg(slots[seat].fd, "%s|Not your turn", MSG_ERROR);
         pthread_mutex_unlock(&table_lock);
         return;
     }
-
     Player *p = &table.players[seat];
+    // if player has 0 points, auto advance
+    if (p->points <= 0) {
+        broadcast("%s|%s is all-in", MSG_INFO, p->name);
+        pthread_mutex_unlock(&table_lock);
+        advance_turn();
+        return;
+    }
     int to_call = table.current_bet - p->current_bet;
 
     if (strcmp(action_str, "FOLD") == 0) {
