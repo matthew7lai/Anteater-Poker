@@ -1,41 +1,63 @@
-Anteater Poker — Beta Release
+Anteater Poker — Final Release
 Team 23 | EECS 22L | University of California, Irvine
-Version: Alpha  |  Date: May 2026
+Version: Beta  |  Date: June 2026
 
-AUTHORS
--------
-Team 23 — EECS 22L Spring 2026, UCI
+AUTHORS: Khaled Alasfoor, Hamad Aldabbous, Yousef Bash, Mathew Lai, Bader Almerjan
+-------------------------------------------------------------------------------
+Team 23 — EECS 22L, Spring 2026, UCI
 
 DESCRIPTION
------------
+-------------------------------------------------------------------------------
 Anteater Poker is an online multiplayer Texas Hold'em variant featuring
 the UCI Anteater Wild Card mechanic. Players connect to a central server,
-choose a seat, and play against other humans or bots using a GTK3 GUI.
+take a seat, and play against other humans or bots through a GTK3 GUI.
+
+PACKAGE LAYOUT
+-------------------------------------------------------------------------------
+  poker/
+    Makefile     build and packaging targets
+    README       this file
+    COPYRIGHT    license / copyright
+    INSTALL      detailed build & run instructions
+    src/         source code and src/Makefile
+    bin/         executables (created by `make`)
+    doc/         PDF documentation
 
 QUICK START
------------
+-------------------------------------------------------------------------------
 See INSTALL for full build instructions.
 
-  1. Start the server:
-       poker/bin/poker_server &
+  1. Build from source (from inside poker/):
+       make
 
-  2. Launch one or more clients:
-       poker/bin/poker_client
+  2. Start the server:
+       ./bin/poker_server &
 
-  3. On the login screen, enter your username, the server IP, and port
+  3. Launch one or more clients:
+       ./bin/poker_client
+
+  4. On the login screen, enter your username, the server IP, and port
      (default: 127.0.0.1:9000), then click "Connect & Join Game".
 
-  4. The server dashboard allows adding bots and dealing new hands.
+  5. The server dashboard lets you add bots and deal new hands.
+
+BUILD TARGETS
+-------------------------------------------------------------------------------
+  make            Build poker_server and poker_client into bin/
+  make test       Build and run the unit tests
+  make test-gui   GUI smoke build
+  make test-comm  Communication smoke build
+  make clean      Remove build artifacts
+  make tar        Create both source and binary release archives
 
 ANTEATER WILD CARD RULE
------------------------
-One player per round is randomly dealt the Anteater Wild Card (🐜).
+-------------------------------------------------------------------------------
+One player per hand is randomly dealt the Anteater Wild Card.
 The Wild Card can substitute for any rank or suit to form the best
-possible 5-card hand. If the Wild Card is used in the winning hand,
-the winner receives a bonus of 200 points on top of the pot.
+possible 5-card hand. If the Wild Card appears in the winning hand,
+the winner receives a 200-point bonus on top of the pot.
 
-For full rules and user manual, see:
-  poker/doc/Poker_UserManual.pdf
-
-For software architecture details, see:
-  poker/doc/Poker_SoftwareSpec.pdf
+DOCUMENTATION
+-------------------------------------------------------------------------------
+  User manual:           doc/Poker_UserManual.pdf
+  Software specification: doc/Poker_SoftwareSpec.pdf
