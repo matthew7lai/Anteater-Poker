@@ -47,6 +47,7 @@ static GtkTextBuffer *chat_buf;
 static GtkWidget *btn_call, *btn_raise, *btn_fold, *btn_check, *btn_allin;
 static GtkWidget *raise_spin;
 static GtkWidget *timer_label;
+static gboolean timer_tick(gpointer data);
 
 //css
 static void apply_css(void) {
