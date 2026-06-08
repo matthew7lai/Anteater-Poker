@@ -927,7 +927,7 @@ int main(int argc, char **argv) {
     listen(server_fd, 8);
 
     GtkApplication *app = gtk_application_new(
-        "edu.uci.eecs22l.poker_server", G_APPLICATION_DEFAULT_FLAGS);
+        "edu.uci.eecs22l.poker_server", G_APPLICATION_FLAGS_NONE);
     g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
