@@ -23,6 +23,8 @@ static int    current_bet= 0;
 static int    pot_val    = 0;
 static int    player_pts[MAX_PLAYERS];
 static char   seat_names[MAX_PLAYERS][MAX_NAME_LEN];
+static guint timer_source_id = 0;
+static int   timer_seconds   = 0;
 
 static GtkWidget *main_stack;
 
@@ -44,6 +46,7 @@ static GtkWidget *chat_entry;
 static GtkTextBuffer *chat_buf;
 static GtkWidget *btn_call, *btn_raise, *btn_fold, *btn_check, *btn_allin;
 static GtkWidget *raise_spin;
+static GtkWidget *timer_label;
 
 //css
 static void apply_css(void) {
@@ -269,12 +272,25 @@ static void handle_message(char *line) {
         g_idle_add(do_refresh, GINT_TO_POINTER(RT_COMMUNITY));
 
     } else if (strcmp(tok, MSG_TURN)==0) {
-        char *ts=strtok(NULL,"|"), *bs=strtok(NULL,"|"), *ps=strtok(NULL,"|");
-        int turn_seat = ts ? atoi(ts) : -1;
-        current_bet   = bs ? atoi(bs) : 0;
-        pot_val       = ps ? atoi(ps) : 0;
-        my_turn       = (turn_seat == my_seat);
-        g_idle_add(do_refresh, GINT_TO_POINTER(RT_STATUS));
+    char *ts=strtok(NULL,"|"), *bs=strtok(NULL,"|"), *ps=strtok(NULL,"|");
+    int turn_seat = ts ? atoi(ts) : -1;
+    current_bet   = bs ? atoi(bs) : 0;
+    pot_val       = ps ? atoi(ps) : 0;
+    my_turn       = (turn_seat == my_seat);
+
+    //cancel any existing timer
+    if (timer_source_id) {
+        g_source_remove(timer_source_id);
+        timer_source_id = 0;
+    }
+    //start timer if its my turn
+    if (my_turn) {
+        timer_seconds = 30;
+        timer_source_id = g_timeout_add(1000, timer_tick, NULL);
+    } else {
+        gtk_label_set_text(GTK_LABEL(timer_label), "");
+    }
+    g_idle_add(do_refresh, GINT_TO_POINTER(RT_STATUS));
 
     } else if (strcmp(tok, MSG_POINTS)==0) {
         for (int i=0;i<MAX_PLAYERS;i++) {
@@ -434,6 +450,26 @@ static void on_chat_send(GtkButton *b, gpointer d) { (void)b;(void)d;
     }                           
 }
 
+//timer
+static gboolean timer_tick(gpointer data) {
+    (void)data;
+    timer_seconds--;
+    if (timer_seconds <= 0) {
+        gtk_label_set_text(GTK_LABEL(timer_label), "");
+        if (my_turn) {
+            send_to_server("%s|FOLD|0", MSG_ACTION);
+            my_turn = 0;
+            g_idle_add(do_refresh, GINT_TO_POINTER(RT_STATUS));
+        }
+        timer_source_id = 0;
+        return G_SOURCE_REMOVE;
+    }
+    char buf[32];
+    snprintf(buf, 32, "⏱ %d seconds", timer_seconds);
+    gtk_label_set_text(GTK_LABEL(timer_label), buf);
+    return G_SOURCE_CONTINUE;
+}
+
 //login button
 static void on_connect(GtkButton *b, gpointer d) {
     (void)b;(void)d;
@@ -536,6 +572,9 @@ static GtkWidget *build_game_screen(void) {
     gtk_box_pack_start(GTK_BOX(sbar),pot_label,FALSE,FALSE,0);
     gtk_box_pack_start(GTK_BOX(sbar),pts_label,FALSE,FALSE,0);
     gtk_box_pack_end  (GTK_BOX(sbar),turn_label,FALSE,FALSE,0);
+
+    timer_label=gtk_label_new(""); add_cls(timer_label,"my-turn");
+    gtk_box_pack_end(GTK_BOX(sbar),timer_label,FALSE,FALSE,0);
 
     gtk_box_pack_start(GTK_BOX(left),gtk_separator_new(GTK_ORIENTATION_HORIZONTAL),FALSE,FALSE,2);
 
